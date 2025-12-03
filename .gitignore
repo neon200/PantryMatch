@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Flask
+instance/
+.webassets-cache
+
+# API Keys - DO NOT COMMIT
+backend/config.py
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+*.egg-info/
+
+# Environment variables
+.env
+.env.local
+
+# Data files (if large)
+*.csv
+!backend/data/*.csv
+
+# Logs
+*.log
+logs/
+
+# Additional editor / project files
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
