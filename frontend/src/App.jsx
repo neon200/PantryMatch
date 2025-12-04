@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 
 function App() {
@@ -25,6 +25,10 @@ function App() {
   const [detectingMulti, setDetectingMulti] = useState(false);
   const [cnnDetected, setCnnDetected] = useState([]);
   const [llmDetected, setLlmDetected] = useState([]);
+
+  // Refs for file inputs to reset them
+  const singleImageInputRef = useRef(null);
+  const multiImageInputRef = useRef(null);
 
   // Fetch recipes from Flask backend
   const searchRecipes = async () => {
@@ -109,6 +113,34 @@ function App() {
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  // Remove single image
+  const removeSingleImage = (e) => {
+    e.stopPropagation();
+    setSingleImageFile(null);
+    setSingleImagePreview(null);
+    setCnnDetected([]);
+    setLlmDetected([]);
+    // Reset the file input
+    if (singleImageInputRef.current) {
+      singleImageInputRef.current.value = '';
+    }
+  };
+
+  // Remove image from multiple images
+  const removeMultiImage = (index, e) => {
+    e.stopPropagation();
+    const newFiles = multiImageFiles.filter((_, i) => i !== index);
+    const newPreviews = multiImagePreviews.filter((_, i) => i !== index);
+    setMultiImageFiles(newFiles);
+    setMultiImagePreviews(newPreviews);
+    setCnnDetected([]);
+    setLlmDetected([]);
+    // Reset the file input if all images are removed
+    if (newFiles.length === 0 && multiImageInputRef.current) {
+      multiImageInputRef.current.value = '';
+    }
   };
 
   // Detect ingredients from a single combined image
@@ -208,6 +240,34 @@ function App() {
     setMissing('');
     setAdaptedStep('');
     setVideos([]);
+  };
+
+  // Format AI suggestion text into bullet points
+  const formatAdaptationText = (text) => {
+    if (!text) return [];
+    
+    // Split by common patterns: numbered lists, bullet points, line breaks, or periods
+    // First, try to split by numbered items (1., 2., etc.)
+    let items = text.split(/(?=\d+\.\s)/).filter(item => item.trim());
+    
+    // If no numbered items, try splitting by line breaks
+    if (items.length <= 1) {
+      items = text.split(/\n+/).filter(item => item.trim());
+    }
+    
+    // If still single item, try splitting by periods followed by space
+    if (items.length <= 1) {
+      items = text.split(/\.\s+/).filter(item => item.trim() && item.length > 10);
+    }
+    
+    // Clean up items: remove leading numbers/bullets, trim whitespace
+    return items.map(item => {
+      // Remove leading numbers, bullets, dashes
+      item = item.replace(/^[\d\-\•\*\u2022]\s*/, '').trim();
+      // Remove trailing period if present
+      item = item.replace(/\.$/, '');
+      return item;
+    }).filter(item => item.length > 0);
   };
 
   // Call backend to get AI adaptation
@@ -321,23 +381,47 @@ function App() {
             {/* Option 1: single combined image */}
             <div className="image-upload-section">
               <p className="image-upload-title">Option 1: Upload a single image with all ingredients</p>
-              <label className="image-upload-box">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="image-upload-input"
-                  onChange={handleSingleImageUpload}
-                  disabled={detectingSingle}
-                />
-                {singleImagePreview ? (
+              {singleImagePreview ? (
+                <div className="image-upload-box" style={{ pointerEvents: 'none' }}>
+                  <input
+                    ref={singleImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="image-upload-input"
+                    onChange={handleSingleImageUpload}
+                    disabled={detectingSingle}
+                  />
                   <div className="image-upload-preview-wrapper">
-                    <img
-                      src={singleImagePreview}
-                      alt="Combined ingredients preview"
-                      className="image-upload-preview"
-                    />
+                    <div className="image-preview-container">
+                      <img
+                        src={singleImagePreview}
+                        alt="Combined ingredients preview"
+                        className="image-upload-preview"
+                      />
+                      <button
+                        className="image-remove-btn"
+                        onClick={removeSingleImage}
+                        aria-label="Remove image"
+                        style={{ pointerEvents: 'auto' }}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <line x1="18" y1="6" x2="6" y2="18"></line>
+                          <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                ) : (
+                </div>
+              ) : (
+                <label className="image-upload-box">
+                  <input
+                    ref={singleImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="image-upload-input"
+                    onChange={handleSingleImageUpload}
+                    disabled={detectingSingle}
+                  />
                   <div className="image-upload-placeholder">
                     <span className="image-upload-icon">📸</span>
                     <span className="image-upload-main">Drop a single image or click to browse</span>
@@ -345,34 +429,58 @@ function App() {
                       Best when all ingredients are visible in one clear photo
                     </span>
                   </div>
-                )}
-              </label>
+                </label>
+              )}
             </div>
 
             {/* Option 2: multiple individual images */}
             <div className="image-upload-section" style={{ marginTop: 24 }}>
               <p className="image-upload-title">Option 2: Upload separate images of ingredients</p>
-              <label className="image-upload-box">
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  className="image-upload-input"
-                  onChange={handleMultiImageUpload}
-                  disabled={detectingMulti}
-                />
-                {multiImagePreviews && multiImagePreviews.length > 0 ? (
+              {multiImagePreviews && multiImagePreviews.length > 0 ? (
+                <div className="image-upload-box" style={{ pointerEvents: 'none' }}>
+                  <input
+                    ref={multiImageInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="image-upload-input"
+                    onChange={handleMultiImageUpload}
+                    disabled={detectingMulti}
+                  />
                   <div className="image-upload-preview-wrapper">
                     {multiImagePreviews.map((src, idx) => (
-                      <img
-                        key={idx}
-                        src={src}
-                        alt={`Ingredient ${idx + 1}`}
-                        className="image-upload-preview"
-                      />
+                      <div key={idx} className="image-preview-container">
+                        <img
+                          src={src}
+                          alt={`Ingredient ${idx + 1}`}
+                          className="image-upload-preview"
+                        />
+                        <button
+                          className="image-remove-btn"
+                          onClick={(e) => removeMultiImage(idx, e)}
+                          aria-label="Remove image"
+                          style={{ pointerEvents: 'auto' }}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                          </svg>
+                        </button>
+                      </div>
                     ))}
                   </div>
-                ) : (
+                </div>
+              ) : (
+                <label className="image-upload-box">
+                  <input
+                    ref={multiImageInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="image-upload-input"
+                    onChange={handleMultiImageUpload}
+                    disabled={detectingMulti}
+                  />
                   <div className="image-upload-placeholder">
                     <span className="image-upload-icon">📸</span>
                     <span className="image-upload-main">Drop multiple images or click to browse</span>
@@ -380,8 +488,8 @@ function App() {
                       Best when each ingredient is in its own clear photo
                     </span>
                   </div>
-                )}
-              </label>
+                </label>
+              )}
             </div>
 
             {/* Single combined detect button */}
@@ -539,7 +647,8 @@ function App() {
               </svg>
             </button>
 
-            <div className="modal-header-section">
+            <div className="recipe-modal-content">
+              <div className="modal-header-section">
               <h2 className="modal-recipe-title">{selectedRecipe.title}</h2>
               {selectedRecipe.time && (
                 <div className="modal-time-badge">
@@ -598,8 +707,8 @@ function App() {
               <section className="modal-section-block">
                 <div className="section-header">
                   <div className="section-icon-wrapper">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    <svg viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 4C9.243 4 7 6.243 7 9h2c0-1.654 1.346-3 3-3s3 1.346 3 3c0 1.069-.454 1.465-1.481 2.255-.382.294-.813.626-1.226 1.038C10.981 13.604 10.995 14.897 11 15v2h2v-2.009c0-.024.023-.601.707-1.284.32-.32.682-.598 1.031-.867C15.798 12.024 17 11.1 17 9c0-2.757-2.243-5-5-5zm-1 14h2v2h-2z"/>
                     </svg>
                   </div>
                   <h3 className="section-heading">Missing Something?</h3>
@@ -642,7 +751,17 @@ function App() {
                         </svg>
                         <span>AI Suggestion</span>
                       </div>
-                      <p className="result-text">{adaptedStep}</p>
+                      <div className="result-text">
+                        {formatAdaptationText(adaptedStep).length > 0 ? (
+                          <ul className="adaptation-list">
+                            {formatAdaptationText(adaptedStep).map((item, index) => (
+                              <li key={index}>{item}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p>{adaptedStep}</p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -689,6 +808,7 @@ function App() {
                   <p className="no-videos-message">No video tutorials available</p>
                 )}
               </section>
+            </div>
             </div>
           </div>
         </>
