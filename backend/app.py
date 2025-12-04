@@ -15,6 +15,7 @@ try:
     from config import (
         OPENROUTER_API_KEY,
         OPENROUTER_API_URL,
+        OPENROUTER_MODEL,
         RAPIDAPI_KEY,
         RAPIDAPI_HOST
     )
@@ -22,6 +23,7 @@ except ImportError:
     # Fallback to environment variables if config.py doesn't exist
     OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
     OPENROUTER_API_URL = os.getenv('OPENROUTER_API_URL', 'https://openrouter.ai/api/v1/chat/completions')
+    OPENROUTER_MODEL = os.getenv('OPENROUTER_MODEL', 'openai/gpt-4o-mini')
     RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY', '')
     RAPIDAPI_HOST = os.getenv('RAPIDAPI_HOST', 'youtube-v3-alternative.p.rapidapi.com')
     
@@ -32,7 +34,7 @@ app = Flask(__name__)
 CORS(app)
 
 # -- Load Recipes & TF-IDF Search Setup --
-df = pd.read_csv("backend/data/final_recipes.csv")
+df = pd.read_csv("data/final_recipes.csv")
 vectorizer = TfidfVectorizer(stop_words='english')
 tfidf_matrix = vectorizer.fit_transform(df['processed_ingredients'])
 
@@ -42,7 +44,8 @@ def search():
     user_query = request.args.get('q', '')
     user_vec = vectorizer.transform([user_query])
     scores = cosine_similarity(user_vec, tfidf_matrix).flatten()
-    top_indices = scores.argsort()[-5:][::-1]
+    # Get top 6 most relevant recipes instead of 5
+    top_indices = scores.argsort()[-6:][::-1]
     results = []
     for idx in top_indices:
         results.append({
@@ -68,7 +71,7 @@ def adapt():
         f"explaining briefly what to do. Only output the modified or additional instruction, not the whole recipe."
     )
     payload = {
-        "model": "x-ai/grok-4.1-fast:free",
+        "model": OPENROUTER_MODEL,
         "messages": [
             {"role": "system", "content": "You are a helpful Indian recipe assistant."},
             {"role": "user", "content": prompt}
@@ -95,7 +98,8 @@ def adapt():
 @app.route('/videos', methods=['GET'])
 def get_youtube_videos():
     recipe = request.args.get('recipe', '')
-    max_results = 3
+    # Only return the top 2 most relevant videos
+    max_results = 2
     url = f"https://youtube-v3-alternative.p.rapidapi.com/search"
     params = {"query": recipe + " recipe", "maxResults": str(max_results)}
     headers = {
@@ -250,7 +254,7 @@ def classify_image():
                                 "Return ONLY a comma-separated list of ingredient names, "
                                 "no explanations or extra text.\n\n"
                                 f"Ingredients already detected by another model: {known_list}.\n"
-                                "If you see additional ingredients not in that list, include them too."
+                                "Use that list as a hint but still include every ingredient you see in the final response, even if it was already detected."
                             ),
                         }
                     ]
@@ -265,7 +269,7 @@ def classify_image():
                         )
 
                 vision_payload = {
-                    "model": "openai/gpt-4o-mini",
+                    "model": OPENROUTER_MODEL,
                     "messages": [
                         {
                             "role": "system",

@@ -317,18 +317,28 @@
   cursor: not-allowed;
 }
 
-.image-model-row {
-  margin-top: 10px;
+.detected-summary {
+  margin-top: 20px;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px dashed #f1e6d7;
+  background: #fffdf8;
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.image-model-label {
-  font-size: 12px;
+.detected-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detected-label {
+  font-size: 13px;
   font-weight: 600;
-  color: #6b6457;
+  color: #2c2416;
+  margin: 0;
 }
 
 .image-model-chips {
@@ -345,6 +355,12 @@
   border: 1px solid #ffd0b3;
   color: #7a3b16;
   font-weight: 500;
+}
+
+.detected-empty {
+  font-size: 13px;
+  color: #a39689;
+  margin: 0;
 }
 
 /* Results Header */

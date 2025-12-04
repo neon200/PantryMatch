@@ -23,7 +23,8 @@ function App() {
   const [multiImageFiles, setMultiImageFiles] = useState([]);
   const [multiImagePreviews, setMultiImagePreviews] = useState([]);
   const [detectingMulti, setDetectingMulti] = useState(false);
-  const [modelIngredients, setModelIngredients] = useState([]);
+  const [cnnDetected, setCnnDetected] = useState([]);
+  const [llmDetected, setLlmDetected] = useState([]);
 
   // Fetch recipes from Flask backend
   const searchRecipes = async () => {
@@ -67,7 +68,8 @@ function App() {
 
     setSingleImageFile(file);
     setSingleImagePreview(null);
-    setModelIngredients([]);
+    setCnnDetected([]);
+    setLlmDetected([]);
     setError('');
     setDetectingSingle(false);
 
@@ -90,7 +92,8 @@ function App() {
     }
 
     setMultiImageFiles(validImages);
-    setModelIngredients([]);
+    setCnnDetected([]);
+    setLlmDetected([]);
     setError('');
     setDetectingMulti(false);
 
@@ -129,14 +132,14 @@ function App() {
         throw new Error(data.error || 'Failed to classify image');
       }
 
-      if (Array.isArray(data.cnn_ingredients)) {
-        setModelIngredients(data.cnn_ingredients);
-      } else {
-        setModelIngredients([]);
-      }
+      const cnnList = Array.isArray(data.cnn_ingredients) ? data.cnn_ingredients : [];
+      const llmList = Array.isArray(data.ingredients) ? data.ingredients : [];
 
-      if (Array.isArray(data.ingredients) && data.ingredients.length > 0) {
-        setIngredients(data.ingredients.join(', '));
+      setCnnDetected(cnnList);
+      setLlmDetected(llmList);
+
+      if (llmList.length > 0) {
+        setIngredients(llmList.join(', '));
       } else {
         setError('No ingredients detected from image');
       }
@@ -171,14 +174,14 @@ function App() {
         throw new Error(data.error || 'Failed to classify image');
       }
 
-      if (Array.isArray(data.cnn_ingredients)) {
-        setModelIngredients(data.cnn_ingredients);
-      } else {
-        setModelIngredients([]);
-      }
+      const cnnList = Array.isArray(data.cnn_ingredients) ? data.cnn_ingredients : [];
+      const llmList = Array.isArray(data.ingredients) ? data.ingredients : [];
 
-      if (Array.isArray(data.ingredients) && data.ingredients.length > 0) {
-        setIngredients(data.ingredients.join(', '));
+      setCnnDetected(cnnList);
+      setLlmDetected(llmList);
+
+      if (llmList.length > 0) {
+        setIngredients(llmList.join(', '));
       } else {
         setError('No ingredients detected from image');
       }
@@ -379,19 +382,6 @@ function App() {
                   </div>
                 )}
               </label>
-
-              {modelIngredients.length > 0 && (
-                <div className="image-model-row">
-                  <span className="image-model-label">Detected by model:</span>
-                  <div className="image-model-chips">
-                    {modelIngredients.map((ing, idx) => (
-                      <span key={idx} className="image-model-chip">
-                        {ing}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Single combined detect button */}
@@ -416,6 +406,40 @@ function App() {
                   : 'Detect all ingredients'}
               </button>
             </div>
+
+            {(cnnDetected.length > 0 || llmDetected.length > 0) && (
+              <div className="detected-summary">
+                <div className="detected-group">
+                  <p className="detected-label">Ingredients detected by ResNet model</p>
+                  {cnnDetected.length > 0 ? (
+                    <div className="image-model-chips">
+                      {cnnDetected.map((ing, idx) => (
+                        <span key={`${ing}-${idx}`} className="image-model-chip">
+                          {ing}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="detected-empty">No ResNet ingredients detected yet.</p>
+                  )}
+                </div>
+
+                <div className="detected-group">
+                  <p className="detected-label">All ingredients available (OpenRouter)</p>
+                  {llmDetected.length > 0 ? (
+                    <div className="image-model-chips">
+                      {llmDetected.map((ing, idx) => (
+                        <span key={`llm-${ing}-${idx}`} className="image-model-chip">
+                          {ing}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="detected-empty">No OpenRouter ingredients detected yet.</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {results.length > 0 && (
