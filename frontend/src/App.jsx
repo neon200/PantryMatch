@@ -43,8 +43,17 @@ function App() {
       if (!response.ok) throw new Error('Failed to fetch recipes');
       const data = await response.json();
       setResults(data);
+      
+      // Check if no results or all results have very low similarity scores
       if (data.length === 0) {
-        setError('No recipes found. Try different ingredients!');
+        setError('No matches found in the dataset. Please try different ingredients.');
+      } else {
+        // Check if all results have very low scores (indicating irrelevant query)
+        const maxScore = Math.max(...data.map(r => r.score || 0));
+        if (maxScore < 0.01) {
+          setError('The query appears to be irrelevant or not found in the dataset. Please try different ingredients.');
+          setResults([]); // Clear results since they're not meaningful
+        }
       }
     } catch (error) {
       setError('Error fetching recipes. Make sure the server is running!');
@@ -95,24 +104,42 @@ function App() {
       return;
     }
 
-    setMultiImageFiles(validImages);
+    // Append new images to existing ones instead of replacing
+    const newFiles = [...multiImageFiles, ...validImages];
+    setMultiImageFiles(newFiles);
     setCnnDetected([]);
     setLlmDetected([]);
     setError('');
     setDetectingMulti(false);
 
-    // Generate previews
-    const previews = [];
+    // Generate previews for new images only
+    const newPreviews = [];
+    let completedCount = 0;
+    
     validImages.forEach((file, index) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        previews[index] = reader.result;
-        if (previews.length === validImages.length) {
-          setMultiImagePreviews([...previews]);
+        newPreviews[index] = reader.result;
+        completedCount++;
+        if (completedCount === validImages.length) {
+          // Append new previews to existing ones using functional update
+          setMultiImagePreviews(prev => [...prev, ...newPreviews]);
         }
       };
       reader.readAsDataURL(file);
     });
+
+    // Reset the file input so the same files can be selected again if needed
+    if (multiImageInputRef.current) {
+      multiImageInputRef.current.value = '';
+    }
+  };
+
+  // Trigger file input for adding more images
+  const handleAddMoreImages = () => {
+    if (multiImageInputRef.current) {
+      multiImageInputRef.current.click();
+    }
   };
 
   // Remove single image
@@ -437,7 +464,7 @@ function App() {
             <div className="image-upload-section" style={{ marginTop: 24 }}>
               <p className="image-upload-title">Option 2: Upload separate images of ingredients</p>
               {multiImagePreviews && multiImagePreviews.length > 0 ? (
-                <div className="image-upload-box" style={{ pointerEvents: 'none' }}>
+                <>
                   <input
                     ref={multiImageInputRef}
                     type="file"
@@ -446,6 +473,7 @@ function App() {
                     className="image-upload-input"
                     onChange={handleMultiImageUpload}
                     disabled={detectingMulti}
+                    style={{ display: 'none' }}
                   />
                   <div className="image-upload-preview-wrapper">
                     {multiImagePreviews.map((src, idx) => (
@@ -459,7 +487,6 @@ function App() {
                           className="image-remove-btn"
                           onClick={(e) => removeMultiImage(idx, e)}
                           aria-label="Remove image"
-                          style={{ pointerEvents: 'auto' }}
                         >
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -468,8 +495,19 @@ function App() {
                         </button>
                       </div>
                     ))}
+                    <button
+                      className="image-add-more-btn"
+                      onClick={handleAddMoreImages}
+                      aria-label="Add more images"
+                      type="button"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    </button>
                   </div>
-                </div>
+                </>
               ) : (
                 <label className="image-upload-box">
                   <input
@@ -559,15 +597,29 @@ function App() {
             </div>
           )}
 
-          {results.length === 0 && !loading && !error && (
+          {results.length === 0 && !loading && (
             <div className="empty-state">
               <div className="empty-illustration">
                 <div className="empty-circle empty-circle-1"></div>
                 <div className="empty-circle empty-circle-2"></div>
                 <div className="empty-circle empty-circle-3"></div>
               </div>
-              <h3 className="empty-title">Ready to cook?</h3>
-              <p className="empty-text">Type in your ingredients above and discover amazing recipes</p>
+              {error && (error.includes('No matches') || error.includes('irrelevant')) ? (
+                <>
+                  <h3 className="empty-title">No Matches Found</h3>
+                  <p className="empty-text">{error}</p>
+                </>
+              ) : error ? (
+                <>
+                  <h3 className="empty-title">Error</h3>
+                  <p className="empty-text">{error}</p>
+                </>
+              ) : (
+                <>
+                  <h3 className="empty-title">Ready to cook?</h3>
+                  <p className="empty-text">Type in your ingredients above and discover amazing recipes</p>
+                </>
+              )}
             </div>
           )}
 
